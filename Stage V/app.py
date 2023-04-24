@@ -3,6 +3,45 @@ import plotly.express as px
 import pandas as pd
 from datetime import datetime as dt
 import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.model_selection import train_test_split
+
+
+class PolynomialModel:
+    """
+    df: should be in format <index = Datetime> <columns = state_name> <values = number of new cases/deaths>
+    """
+    def __init__(self, df, degree=3):
+        self.df = df
+        self.degree = degree
+        self.trends = pd.DataFrame()
+        self.model()
+    
+    def model(self):
+        for column in self.df.columns:
+            pr = LinearRegression()
+            poly = PolynomialFeatures(degree=self.degree)
+            x = np.arange(len(self.df.index)).reshape(-1,1)
+            y = self.df[column].values.astype(int)
+            poly_x = poly.fit_transform(x)
+            pr.fit(poly_x, y)
+            self.trends[column] = pr.predict(poly_x)
+            self.trends.index = self.df.index
+    
+    def get_trends(self, start_date, end_date, states):
+        if len(states) == 0 or 'All States' in states:
+            selected = self.trends.sum(axis=1)
+            selected.name = 'Trend'
+        else:
+            selected = self.trends[states][start_date:end_date]
+        return selected
+            
+        
+    
+    
+        
+    
 
 
 # United States of America Python Dictionary to translate States,
@@ -132,6 +171,9 @@ def get_us_confirmed_deaths_time_series():
 covid_states_cases_df = get_us_confirmed_cases()
 covid_states_deaths_df = get_us_confirmed_deaths()
 
+cases_model = PolynomialModel(covid_states_cases_df)
+deaths_model = PolynomialModel(covid_states_deaths_df)
+
 covid_cases_df = get_us_confirmed_cases_time_series()
 covid_deaths_df = get_us_confirmed_deaths_time_series()
 
@@ -167,15 +209,19 @@ def update_cases_graph(start_date, end_date, value, states):
         LOG_FLAG = False
     if len(states) == 0 or 'All States' in states:
         selected_df = covid_states_cases_df.sum(axis=1)
+        trend = cases_model.get_trends(start_date, end_date, states)
         graph_title = 'Confirmed COVID-19 Cases in the US'
+        selected_df.name = 'Cases'
     else:
-        selected_df = covid_states_cases_df[[us_state_to_abbrev[state] for state in states]].sum(axis=1)
+        selected_df = covid_states_cases_df[[us_state_to_abbrev[state] for state in states]]
+        trend = cases_model.get_trends(start_date, end_date, [us_state_to_abbrev[state] for state in states]).add_suffix('_trend')
         if len(states) > 1:
             graph_title = f'Confirmed COVID-19 Cases in multiple states'
         else:
             graph_title = f'Confirmed COVID-19 Casess in {states[0]}'
-    figure = px.line(selected_df[START_DATE:END_DATE], title=graph_title, log_y=LOG_FLAG).update_layout(xaxis_title='Date', yaxis_title='Number of Confirmed Cases')
-    figure.data[0].name = 'Confirmed Cases'
+    selected_df = selected_df[START_DATE:END_DATE]
+    selected_df = pd.merge(selected_df, trend, left_index=True, right_index=True)
+    figure = px.line(selected_df, title=graph_title, log_y=LOG_FLAG).update_layout(xaxis_title='Date', yaxis_title='Number of Confirmed Cases')
     return figure
 
 @callback(
@@ -194,15 +240,19 @@ def update_deaths_graph(start_date, end_date, value, states):
         LOG_FLAG = False
     if len(states) == 0 or 'All States' in states:
         selected_df = covid_states_deaths_df.sum(axis=1)
+        trend = deaths_model.get_trends(start_date, end_date, states)
         graph_title = 'Confirmed COVID-19 Deaths in the US'
+        selected_df.name = 'Deaths'
     else:
-        selected_df = covid_states_deaths_df[[us_state_to_abbrev[state] for state in states]].sum(axis=1)
+        selected_df = covid_states_deaths_df[[us_state_to_abbrev[state] for state in states]]
+        trend = deaths_model.get_trends(start_date, end_date, [us_state_to_abbrev[state] for state in states]).add_suffix('_trend')
         if len(states) > 1:
             graph_title = f'Confirmed COVID-19 Deaths in multiple states'
         else:
             graph_title = f'Confirmed COVID-19 Deaths in {states[0]}'
+    selected_df = selected_df[START_DATE:END_DATE]
+    selected_df = pd.merge(selected_df, trend, left_index=True, right_index=True)
     figure = px.line(selected_df[START_DATE:END_DATE], title=graph_title, log_y=LOG_FLAG).update_layout(xaxis_title='Date', yaxis_title='Number of Confirmed Deaths')
-    figure.data[0].name= 'Confirmed Deaths'
     return figure
 
 if __name__ == '__main__':
