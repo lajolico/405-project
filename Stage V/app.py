@@ -16,6 +16,7 @@ class PolynomialModel:
         self.df = df
         self.degree = degree
         self.trends = pd.DataFrame()
+        self.moving_averages = pd.DataFrame()
         self.model()
     
     def model(self):
@@ -27,14 +28,24 @@ class PolynomialModel:
             poly_x = poly.fit_transform(x)
             pr.fit(poly_x, y)
             self.trends[column] = pr.predict(poly_x)
+            self.moving_averages[column] = moving_average(self.df[column], 7)
             self.trends.index = self.df.index
+            self.moving_averages.index = self.df.index
     
     def get_trends(self, start_date, end_date, states):
         if len(states) == 0 or 'All States' in states:
             selected = self.trends.sum(axis=1)
-            selected.name = 'Trend'
         else:
             selected = self.trends[states][start_date:end_date]
+        selected.name = 'trend'
+        return selected
+    
+    def get_moving_average(self, start_date, end_date, states):
+        if len(states) == 0 or 'All States' in states:
+            selected = self.moving_averages.sum(axis=1)
+        else:
+            selected = self.moving_averages[states][start_date:end_date]
+        selected.name = 'mv_avg'
         return selected
             
         
@@ -210,17 +221,16 @@ def update_cases_graph(start_date, end_date, value, states):
     if len(states) == 0 or 'All States' in states:
         selected_df = covid_states_cases_df.sum(axis=1)
         trend = cases_model.get_trends(start_date, end_date, states)
-        graph_title = 'Confirmed COVID-19 Cases in the US'
+        moving_avg = cases_model.get_moving_average(start_date, end_date, states)
         selected_df.name = 'Cases'
     else:
         selected_df = covid_states_cases_df[[us_state_to_abbrev[state] for state in states]]
         trend = cases_model.get_trends(start_date, end_date, [us_state_to_abbrev[state] for state in states]).add_suffix('_trend')
-        if len(states) > 1:
-            graph_title = f'Confirmed COVID-19 Cases in multiple states'
-        else:
-            graph_title = f'Confirmed COVID-19 Casess in {states[0]}'
+        moving_avg = cases_model.get_moving_average(start_date, end_date, [us_state_to_abbrev[state] for state in states]).add_suffix('_mv_avg')
+    graph_title = f'Confirmed COVID-19 Cases in multiple the US states'
     selected_df = selected_df[START_DATE:END_DATE]
     selected_df = pd.merge(selected_df, trend, left_index=True, right_index=True)
+    selected_df = pd.merge(selected_df, moving_avg, left_index=True, right_index=True)
     figure = px.line(selected_df, title=graph_title, log_y=LOG_FLAG).update_layout(xaxis_title='Date', yaxis_title='Number of Confirmed Cases')
     return figure
 
@@ -243,15 +253,15 @@ def update_deaths_graph(start_date, end_date, value, states):
         trend = deaths_model.get_trends(start_date, end_date, states)
         graph_title = 'Confirmed COVID-19 Deaths in the US'
         selected_df.name = 'Deaths'
+        moving_avg = deaths_model.get_moving_average(start_date, end_date, states)
     else:
         selected_df = covid_states_deaths_df[[us_state_to_abbrev[state] for state in states]]
         trend = deaths_model.get_trends(start_date, end_date, [us_state_to_abbrev[state] for state in states]).add_suffix('_trend')
-        if len(states) > 1:
-            graph_title = f'Confirmed COVID-19 Deaths in multiple states'
-        else:
-            graph_title = f'Confirmed COVID-19 Deaths in {states[0]}'
+        moving_avg = deaths_model.get_moving_average(start_date, end_date, [us_state_to_abbrev[state] for state in states]).add_suffix('_mv_avg')
+        graph_title = f'Confirmed COVID-19 Deaths in the US'
     selected_df = selected_df[START_DATE:END_DATE]
     selected_df = pd.merge(selected_df, trend, left_index=True, right_index=True)
+    selected_df = pd.merge(selected_df, moving_avg, left_index=True, right_index=True)
     figure = px.line(selected_df[START_DATE:END_DATE], title=graph_title, log_y=LOG_FLAG).update_layout(xaxis_title='Date', yaxis_title='Number of Confirmed Deaths')
     return figure
 
