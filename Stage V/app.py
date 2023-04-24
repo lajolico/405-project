@@ -33,7 +33,7 @@ covid_deaths_df = get_us_confirmed_deaths_time_series()
 app = Dash(__name__)
 
 app.layout = html.Div([
-    html.H1(children='COVID-19 Data Analysis', style={'textAlign':'center'}),
+    html.H1(children='COVID-19 Dashboard', style={'textAlign':'center'}),
     html.Label('Start Date'),
     dcc.DatePickerRange(covid_cases_df.index[0], covid_cases_df.index[len(covid_cases_df.index)-1], id='date-picker-range', min_date_allowed=covid_cases_df.index[0], max_date_allowed=covid_cases_df.index[len(covid_cases_df.index)-1]),
     dcc.Dropdown(options=['Linear', 'Log'], id='mode-dropdown', value='Linear'),
