@@ -2,6 +2,7 @@ from dash import Dash, html, dcc, callback, Output, Input
 import plotly.express as px
 import pandas as pd
 from datetime import datetime as dt
+import numpy as np
 
 
 # United States of America Python Dictionary to translate States,
@@ -83,6 +84,15 @@ us_abbrev_to_state = {v: k for k, v in us_state_to_abbrev.items()}
 LOG_FLAG = False
 START_DATE = dt.now()
 END_DATE = dt.now()
+
+def moving_average(data, window_size):
+    moving_average = []
+    for i in range(len(data)):
+        if i + window_size < len(data):
+            moving_average.append(np.mean(data[i:i+window_size]))
+        else:
+            moving_average.append(np.mean(data[i:len(data)]))
+    return moving_average
 
 def get_us_confirmed_cases():
     df = pd.read_csv('../Stage IV/team_work/data/covid_confirmed_usafacts.csv')
